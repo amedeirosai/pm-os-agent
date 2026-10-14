@@ -43,6 +43,12 @@ try:  # load .env if python-dotenv is installed; harmless if it isn't
 except ImportError:
     pass
 
+# Print UTF-8 everywhere: the Windows console defaults to cp1252, which crashes on
+# characters like "≈" in the trace. A no-op on macOS/Linux.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
+
 # --- Bounds (your M5 deliverable: tune these and justify them) ----------------
 MODEL = os.environ.get("CORTEX_MODEL", "gpt-4o-mini")
 MAX_ITERATIONS = int(os.environ.get("CORTEX_MAX_ITERATIONS", "8"))
