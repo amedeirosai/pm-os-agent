@@ -9,25 +9,43 @@
 
 ## 1. Trigger & loop type
 
-**Chosen type:** _heartbeat · cron · hook · goal_
+**Chosen type:** cron (primary, two schedules) + hook (manual backup)
 
-_Why this type? (e.g. a Monday-morning cron that assembles the weekly update, plus a hook on a new PRD to propose stories.)_
+- **Weekly cron**, Monday morning before the VP sync → assemble the leadership status update.
+- **Biweekly cron**, Tuesday morning, the day before sprint planning → propose the next sprint's stories (capped).
+- **Manual hook** → an ad-hoc update on demand.
+
+**Why:** each job runs on the rhythm the work actually follows: weekly leadership comms, biweekly sprints. The manual trigger covers anything in between.
+
+**Ruled out:**
+- **Heartbeat:** overkill for this process, wasted budget.
+- **Goal:** not always applicable and more complex to define. Cortex's real finish line is a human's approval at the HITL checkpoint, which it can't loop its way to on its own.
+
+**Dedupe:** one draft per project per period (e.g. `P-NORTH / status / 2026-W42`, `P-NORTH / stories / Sprint 25`). A repeat trigger in the same period points to the existing draft instead of creating a second one. A manual run can deliberately replace it.
 
 ## 2. Goal / definition of done
 
-_What outcome is this loop responsible for? For a goal loop, what validation says "done"? (e.g. a status update grounded in real activity, queued for review, nothing posted.)_
+Two jobs, each with its own finish line. Cortex never updates the backlog or posts anything in this first version.
+
+- **Status run (weekly):** a leadership status update, grounded in the pulled activity, is drafted, passes the critic, and is held at the HITL checkpoint. Nothing is posted.
+- **Stories run (biweekly):** up to 10 stories with a *proposed* ranking are queued for approval. Nothing is created in the backlog; a human approves the ranking (M1: prioritization is HITL required).
 
 ## 3. Stop conditions
 
-| Condition | What it looks like | What happens |
+| Condition | What it looks like (detectable) | What happens |
 |---|---|---|
-| **Success** | _…_ | _…_ |
-| **Stuck / give up** | _…_ | _escalate / log / halt_ |
-| **Escalate to human** | _…_ | _HITL checkpoint (from agent-line-map)_ |
+| **Success** | All of: critic returns `"verdict": "pass"`; draft saved to `run-output/`; for the stories run, `propose_stories` returned `queued_for_approval` with ≤ 10 items. | Stop at the HITL checkpoint. Draft + stories held for human review; nothing posted. |
+| **Stuck / give up** | Any of: a required data pull (project/activity) fails 3 times in a row · required data is missing or empty · critic rejects twice (revision cap) · 8 iterations or $0.50 spent without success. | Stop, log the reason, hold the last draft, and **always notify the human**. |
+| **Escalate to human** | Any of: a security vulnerability in the pulled data · confidential or cross-project content would enter the draft · a sev-1 issue or `launch_hold` flag · the draft states a release date or ship commitment · the story batch exceeds the cap of 10 · a jailbreak attempt (task tries to make Cortex post, commit, or ignore its rules). | Stop, hold the draft, notify the human with the reason. Ties to M1 HITL checkpoints: actions 1, 5, 6→7, 8, 9. |
 
 ## 4. State
 
-_What persists across iterations, and what's the scope? (e.g. per-project context and last week's update; no cross-project confidential leakage.)_
+**Scope: per-project.** Each project's state lives in its own space. A run for one project can only read that project's state, plus the shared team norms and the *shareable* parts of the roadmap. This enforces the cross-project guardrail from M1 (action 1) structurally, not just by instruction.
+
+- **Persists across runs:** roadmap, team norms, decision log, past updates, and human decisions/feedback from previous HITL checkpoints (e.g. items marked as noise).
+- **Loop bookkeeping:** dedupe keys (e.g. `P-NORTH / status / 2026-W42`) and a run log (what fired, which stop condition ended the run, and why), which feeds the human notification on stuck/escalate.
+- **Purged after each run:** the raw activity pull and draft working notes.
+- **Later:** a human-curated shared layer where I can deliberately add cross-project items (e.g. a dependency between two teams). How remembered feedback expires is decided in M4.
 
 ## 5. The five things a loop can lean on
 
@@ -35,14 +53,14 @@ _`state` is always-on. `connectors` only if you already have one wired (e.g. a J
 
 | Component | For Cortex |
 |---|---|
-| **Work tree** (isolated workspace per run, a git worktree) | _…_ |
-| **Skills** (reusable capabilities) | _…_ |
-| **Plugins / connectors** (tools & access, optional if you don't have one yet) | _…_ |
-| **Subagents** (independent check when the loop can't grade itself) | _placeholder → M3 orchestration-map.md_ |
-| **State tracking** | _…_ |
+| **Work tree** (isolated workspace per run, a git worktree) | Not needed yet, because Cortex doesn't edit code or files beyond saving its draft to `run-output/`. |
+| **Skills** (reusable capabilities) | Not needed yet, because Cortex has one recipe per job. Later candidate: a reusable "status update in our team's format" skill shared across projects. |
+| **Plugins / connectors** (tools & access, optional if you don't have one yet) | **Planned:** Azure DevOps or Jira (backlog/board), SharePoint, Teams (meeting transcripts), Outlook, intranet/roadmaps/announcements, Miro. **Today:** simulated fixture data in `00-build/fixtures/` stands in for them. |
+| **Subagents** (independent check when the loop can't grade itself) | The critic already acts as one: an independent model call validates each draft, so Cortex never grades itself. Full design in M3 `orchestration-map.md`. |
+| **State tracking** | Per-project state (see §4): persisted reference data + human feedback, dedupe keys, run log. |
 
 > Context plan (M4) and the hand-off to bounds & evals (M5) come in later modules, you'll add them to their own deliverables then, not here.
 
 ## Link to live loop
 
-_[path to your agent in `00-build/`]_
+[`00-build/agent.py`](../00-build/agent.py)
