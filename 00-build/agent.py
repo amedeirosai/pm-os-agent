@@ -63,6 +63,17 @@ PRICE_OUT = float(os.environ.get("CORTEX_PRICE_OUT_PER_M", "0.60"))
 # Loop Spec §3 stuck exit: a required pull failing this many times in a row = a tools problem.
 MAX_PULL_FAILURES = 3
 REQUIRED_PULLS = {"get_project", "get_activity"}
+# Orchestration Map §5 tiered fail-action: these critic failures escalate at once;
+# any other failed check (wrong_ids, untraceable_claim, story_off_prd) is revised.
+ESCALATE_CHECKS = {"forbidden_commitment", "confidential_leak"}
+
+# TEST ONLY (M3): CORTEX_SABOTAGE=metric|date injects one bad line into Cortex's
+# first draft so we can prove the critic catches it. Never set this in a real run.
+SABOTAGE = os.environ.get("CORTEX_SABOTAGE", "").strip().lower()
+SABOTAGE_LINES = {
+    "metric": "- Activation rate jumped to 58% this week, beating the quarterly target.",
+    "date": "- Northstar GA is confirmed for 2026-11-15; we will announce it company-wide.",
+}
 
 TOOL_SCHEMAS = [
     {"type": "function", "function": {
@@ -153,6 +164,16 @@ def strip_marker(text: str) -> str:
     return re.sub(r"^\s*(DONE|STUCK|ESCALATE):\s*", "", text, count=1)
 
 
+def log_event(which: str, **fields) -> dict:
+    """Append one line to run-output/run-log.jsonl and return it."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    entry = {"time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+             "task": which, **fields}
+    with open(OUTPUT_DIR / "run-log.jsonl", "a", encoding="utf-8") as log:
+        log.write(json.dumps(entry) + "\n")
+    return entry
+
+
 def finish(which: str, kind: str, draft: str, reason: str, cost: float) -> None:
     """Every run ends here with one of the three Loop Spec exits:
     success (held at HITL), stuck (give up), or escalate (a human must decide).
@@ -160,11 +181,7 @@ def finish(which: str, kind: str, draft: str, reason: str, cost: float) -> None:
     emit_deliverable(which, strip_marker(draft), accepted=(kind == "success"),
                      reason=reason, cost=cost)
 
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    entry = {"time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-             "task": which, "stop": kind, "reason": reason, "cost_usd": round(cost, 4)}
-    with open(OUTPUT_DIR / "run-log.jsonl", "a", encoding="utf-8") as log:
-        log.write(json.dumps(entry) + "\n")
+    entry = log_event(which, stop=kind, reason=reason, cost_usd=round(cost, 4))
 
     if kind != "success":
         # Simulated notification: stands in for Teams/Outlook until a connector is wired.
@@ -194,6 +211,7 @@ def run(which: str = "happy") -> None:
     last_draft = ""
     pull_failures = 0       # consecutive failed required pulls (stuck exit)
     stories_result = None   # latest propose_stories result (success check)
+    sabotaged = False  # TEST ONLY: the sabotage line is injected once per run
     wants_stories = bool(re.search(r"\bstor(y|ies)\b", task["body"], re.IGNORECASE))
 
     for step in range(1, MAX_ITERATIONS + 1):
@@ -255,6 +273,13 @@ def run(which: str = "happy") -> None:
             finish(which, kind, proposed, reason, bounds.cost)
             return
 
+        if SABOTAGE in SABOTAGE_LINES and not sabotaged:
+            proposed = f"{proposed.rstrip()}\n{SABOTAGE_LINES[SABOTAGE]}"
+            last_draft = proposed
+            sabotaged = True
+            banner(f"SABOTAGE (test only): injected a bad '{SABOTAGE}' line into the draft\n"
+                   f"{SABOTAGE_LINES[SABOTAGE]}")
+
         # Validate the proposed output independently.
         banner("CRITIC, independent validation")
         verdict = review(client, MODEL, proposed, "\n".join(source_log))
@@ -284,6 +309,21 @@ def run(which: str = "happy") -> None:
             print(f"\n-> loop check failed: {stories_problem}")
             verdict["reasons"] = [stories_problem]
 
+        # Orchestration Map §5: every rejection is logged, not just how the run ended.
+        log_event(which, event="rejection",
+                  by="critic" if verdict["verdict"] == "fail" else "loop_check",
+                  failed_checks=verdict["failed_checks"], reasons=verdict["reasons"],
+                  revision=revisions)
+
+        serious = ESCALATE_CHECKS.intersection(verdict["failed_checks"])
+        if serious:
+            reason = (f"critic failed {', '.join(sorted(serious))}: "
+                      f"{'; '.join(verdict['reasons'])}")
+            banner(f"ESCALATE, {', '.join(sorted(serious))}. No revision for this "
+                   f"kind of failure, a human takes it from here.")
+            finish(which, "escalate", last_draft, reason, bounds.cost)
+            return
+
         if revisions >= MAX_REVISIONS:
             reason = f"validator rejected {MAX_REVISIONS}x (revision cap)"
             banner(f"REVISION CAP hit ({MAX_REVISIONS}). Escalating to a human "
@@ -293,10 +333,13 @@ def run(which: str = "happy") -> None:
 
         revisions += 1
         print(f"\n-> sent back for revision {revisions}/{MAX_REVISIONS}")
-        messages.append(msg)
+        # Feed back the draft the critic actually judged (incl. any test-only sabotage line).
+        messages.append({"role": "assistant", "content": proposed})
         messages.append({"role": "user", "content":
                          "A validator rejected that for these reasons: "
-                         f"{verdict['reasons']}. Fix it or escalate."})
+                         f"{verdict['reasons']}. Write the full corrected draft now and "
+                         "start it with DONE:. Use ESCALATE: only if the problem needs "
+                         "a human decision and can't be fixed by editing the draft."})
 
     banner(f"MAX ITERATIONS ({MAX_ITERATIONS}) reached without finishing. "
            f"Escalating. Run cost ≈ ${bounds.cost:.4f}")
