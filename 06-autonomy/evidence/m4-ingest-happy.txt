@@ -1,0 +1,95 @@
+
+================================================================
+CORTEX RUN, fixture: task-happy  (auto-queue cap 10 items)
+================================================================
+Task: Weekly leadership status update + next-sprint stories
+Project: P-NORTH (Northstar)
+Requested by: your product lead
+
+Hi, can you put together this week's leadership status update for Northstar
+(P-NORTH)? Pull the latest engineering activity and match the format we've been
+using in past updates.
+
+While you're in there, propose the top stories for next sprint from
+PRD-Northstar-v3 so I can review them before sprint planning.
+
+Nothing goes out until I've looked at it.
+
+
+[step 1] TOOL get_activity({'project_id': 'P-NORTH'})
+          -> {"project_id": "P-NORTH", "activity": [{"type": "pr_merged", "id": "#820", "title": "Day-2 milestone email", "date": "2026-07-02"}, {"type": "pr_merged", "id": "#823", "title": "Empty-state guidance copy (closes #818)", "date": "2026-07-03"}, {"type": "issue_open", "id": "#825", "title": "Contextual
+
+[step 1] TOOL search_past_updates({'query': 'Northstar leadership status update'})
+          -> {"query": "northstar leadership status update", "matches": [{"week": "2026-06-29", "project": "Northstar", "summary": "Green. Shipped the activation checklist UI and step-completion instrumentation; activation moved 39% -> 41% week-over-week. Next: day-2 milestone email and empty-state guidance.", "
+
+[step 1] TOOL get_norms({})
+          -> {"query": "", "norms": "# Team Norms & PM Playbook (mock) \u00e2\u20ac\u201d current pull\n\n> The norms Cortex must respect. `get_norms` returns this so the agent can cite the\n> exact rule it relied on. (Unchanged from the starter playbook except the confidential\n> list now names both embargoed p
+
+[step 1] TOOL get_project({'project_id': 'P-NORTH'})
+          -> {"project_id": "P-NORTH", "name": "Northstar (self-serve onboarding)", "status": "on_track", "flags": [], "pm": "you", "sprint": "Sprint 25", "prd": "PRD-Northstar-v3", "prd_summary": "PRD-Northstar-v3: reduce time-to-first-value in self-serve onboarding. In scope: guided activation checklist, step-
+
+[step 2] TOOL propose_stories({'project_id': 'P-NORTH', 'stories': ['Complete analytics review for contextual tips A/B (#825)', 'Evaluate impact of empty-state guidance copy improvements', 'Design next iteration of day-2 milestone email'], 'reason': 'To support ongoing enhancements in self-serve onboarding, aligning with PRD-Northstar-v3 goals.'})
+          -> {"status": "queued_for_approval", "project_id": "P-NORTH", "count": 3, "stories": ["Complete analytics review for contextual tips A/B (#825)", "Evaluate impact of empty-state guidance copy improvements", "Design next iteration of day-2 milestone email"], "reason": "To support ongoing enhancements in
+
+[step 3] PROPOSED OUTPUT:
+DONE: The weekly leadership status update draft is ready for your review.
+
+**Status Update: Northstar (P-NORTH) for Week of 2026-07-03**
+- **Status**: Green
+- **Recent Progress**:
+  - **Merged PRs**:
+    - #820: Day-2 milestone email
+    - #823: Empty-state guidance copy (closes #818)
+  - **Metric Improvements**: Activation rate increased from 41% to 43% week-over-week.
+- **Open Issues**:
+  - #825: Contextual tips A/B needs analytics review (severity: normal)
+- **Summary**: Successfully completed the day-2 milestone email and empty-state guidance copy improvements, continuing the positive trend in activation rates. The contextual tips A/B test requires analytics review as the next priority.
+
+**Proposed Stories for Next Sprint**: Queued for your review.
+1. **Complete analytics review for contextual tips A/B (#825)**
+2. **Evaluate impact of empty-state guidance copy improvements**
+3. **Design next iteration of day-2 milestone email**
+
+This update follows the tone and structure of previous Green status updates, providing a clear and concise summary of progress and next actions. I've queued up three stories for review, aligned with the goals of the current PRD (PRD-Northstar-v3).
+
+Please let me know if there's anything you'd like adjusted or added before these go forward.
+
+================================================================
+CRITIC, independent validation
+================================================================
+{
+  "verdict": "pass",
+  "failed_checks": [],
+  "reasons": []
+}
+
+================================================================
+HITL CHECKPOINT, status update + any proposed stories queued for your review. Nothing posted, no commitments made. Run cost ≈ $0.0250
+================================================================
+
+================================================================
+FINAL STATUS UPDATE (draft, validator-approved, NOT posted)
+================================================================
+The weekly leadership status update draft is ready for your review.
+
+**Status Update: Northstar (P-NORTH) for Week of 2026-07-03**
+- **Status**: Green
+- **Recent Progress**:
+  - **Merged PRs**:
+    - #820: Day-2 milestone email
+    - #823: Empty-state guidance copy (closes #818)
+  - **Metric Improvements**: Activation rate increased from 41% to 43% week-over-week.
+- **Open Issues**:
+  - #825: Contextual tips A/B needs analytics review (severity: normal)
+- **Summary**: Successfully completed the day-2 milestone email and empty-state guidance copy improvements, continuing the positive trend in activation rates. The contextual tips A/B test requires analytics review as the next priority.
+
+**Proposed Stories for Next Sprint**: Queued for your review.
+1. **Complete analytics review for contextual tips A/B (#825)**
+2. **Evaluate impact of empty-state guidance copy improvements**
+3. **Design next iteration of day-2 milestone email**
+
+This update follows the tone and structure of previous Green status updates, providing a clear and concise summary of progress and next actions. I've queued up three stories for review, aligned with the goals of the current PRD (PRD-Northstar-v3).
+
+Please let me know if there's anything you'd like adjusted or added before these go forward.
+
+Saved draft -> run-output\status-update-happy.md  (for your review, nothing was posted)

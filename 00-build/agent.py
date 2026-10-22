@@ -74,6 +74,9 @@ SABOTAGE_LINES = {
     "metric": "- Activation rate jumped to 58% this week, beating the quarterly target.",
     "date": "- Northstar GA is confirmed for 2026-11-15; we will announce it company-wide.",
 }
+# TEST ONLY (M4 grounding probe): CORTEX_WITHHOLD=get_activity hides that tool from
+# Cortex for one run ("brain off"), without editing the tool lists. Comma-separated.
+WITHHOLD = {t.strip() for t in os.environ.get("CORTEX_WITHHOLD", "").split(",") if t.strip()}
 
 TOOL_SCHEMAS = [
     {"type": "function", "function": {
@@ -211,6 +214,11 @@ def run(which: str = "happy") -> None:
     last_draft = ""
     pull_failures = 0       # consecutive failed required pulls (stuck exit)
     stories_result = None   # latest propose_stories result (success check)
+    requested_project = None    # project ID from get_project
+    activity_projects = set()   # projects whose get_activity returned real data
+    active_schemas = [s for s in TOOL_SCHEMAS if s["function"]["name"] not in WITHHOLD]
+    if WITHHOLD:
+        banner(f"WITHHELD (test only): {', '.join(sorted(WITHHOLD))} hidden from Cortex")
     sabotaged = False  # TEST ONLY: the sabotage line is injected once per run
     wants_stories = bool(re.search(r"\bstor(y|ies)\b", task["body"], re.IGNORECASE))
 
@@ -222,7 +230,7 @@ def run(which: str = "happy") -> None:
             return
 
         resp = client.chat.completions.create(
-            model=MODEL, messages=messages, tools=TOOL_SCHEMAS)
+            model=MODEL, messages=messages, tools=active_schemas)
         bounds.add(resp.usage)
         msg = resp.choices[0].message
 
@@ -245,6 +253,10 @@ def run(which: str = "happy") -> None:
                     pull_failures = pull_failures + 1 if "error" in result else 0
                 if fn == "propose_stories":
                     stories_result = result
+                if fn == "get_project" and "error" not in result:
+                    requested_project = result.get("project_id")
+                if fn == "get_activity" and "error" not in result and result.get("activity"):
+                    activity_projects.add(result.get("project_id"))
 
             if pull_failures >= MAX_PULL_FAILURES:
                 reason = f"required data pull failed {pull_failures}x in a row"
@@ -271,6 +283,17 @@ def run(which: str = "happy") -> None:
             reason = exit_marker.group(2).strip() or f"Cortex chose {kind.upper()}"
             banner(f"{kind.upper()}, Cortex stopped and handed off to a human.")
             finish(which, kind, proposed, reason, bounds.cost)
+            return
+
+        # Memory & Context §3 activity grading: no DONE without this week's activity
+        # for the requested project. A draft without it is hollow, not done.
+        if not activity_projects or (requested_project
+                                     and requested_project not in activity_projects):
+            reason = (f"no usable engineering activity pulled for "
+                      f"{requested_project or 'the requested project'}; "
+                      f"refusing to finish a draft that can't be grounded")
+            banner(f"STUCK, {reason}.")
+            finish(which, "stuck", proposed, reason, bounds.cost)
             return
 
         if SABOTAGE in SABOTAGE_LINES and not sabotaged:
