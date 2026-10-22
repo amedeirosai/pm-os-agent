@@ -67,7 +67,7 @@ An independent critic (separate model call, own context; never sees Cortex's dra
   - **`wrong_ids`, `untraceable_claim`, `story_off_prd` → revise.** These are drafting mistakes Cortex can usually fix with the critic's reasons.
   - **`forbidden_commitment`, `confidential_leak` → escalate immediately.** These go straight to a human.
   - Every failure is also **logged** to the run log.
-- **Revision cap:** max **2** revisions, then **stuck + notify the human** (matches the M2 loop spec and `CORTEX_MAX_REVISIONS=2`). A single revision fixed the stories problem in M2, so two gives some margin.
+- **Revision cap:** max **2** revisions, then **stuck + notify the human** (matches the M2 loop spec and `CORTEX_MAX_REVISIONS=2`). In M2 and M3, real mistakes were fixed in a single revision: Cortex claimed stories were "queued" without calling `propose_stories` (caught by the loop's code check), and an invented "58% activation" metric (caught by the critic). Both kinds of rejection count toward the same cap, so two gives some margin.
 - **Pass action:** the draft advances to the **PM review checkpoint** and is held there, never sent automatically (M1 action 9: no publish tool).
 
 ## 6. State: shared vs isolated
