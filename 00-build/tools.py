@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -101,6 +102,31 @@ def get_norms(query: str = "") -> dict:
     return {"query": query, "norms": text}
 
 
+def _in_scope_items(project_id: str) -> list[str]:
+    """The PRD's in-scope items, parsed from the project's prd_summary
+    ("In scope: a, b, c. Out of scope: ..."). Empty if the PRD doesn't list them."""
+    project = _load_json("projects.json").get(str(project_id).strip().upper(), {})
+    match = re.search(r"In scope:(.*?)(?:\.\s*Out of scope|\.?$)",
+                      project.get("prd_summary", ""), re.IGNORECASE)
+    if not match:
+        return []
+    return [re.sub(r"^(a|an|the)\s+", "", item.strip(), flags=re.IGNORECASE)
+            for item in match.group(1).split(",") if item.strip()]
+
+
+def _cites_scope(story, scope: list[str]) -> bool:
+    """A story passes if its prd_item names an in-scope item (or, when the PRD lists
+    no scope, if it names anything at all)."""
+    if not isinstance(story, dict):
+        return False
+    cited = str(story.get("prd_item", "")).strip().lower()
+    if len(cited) < 4:  # too short to name a PRD item
+        return False
+    if not scope:
+        return True
+    return any(item.lower() in cited or cited in item.lower() for item in scope)
+
+
 def propose_stories(project_id: str, stories=None, reason: str = "") -> dict:
     """PROPOSE a set of backlog stories for a human to approve. This creates NOTHING
     in the tracker, it queues a request. A batch larger than CORTEX_MAX_QUEUE_ITEMS
@@ -116,6 +142,16 @@ def propose_stories(project_id: str, stories=None, reason: str = "") -> dict:
                 "count": len(stories),
                 "cap_items": MAX_QUEUE_ITEMS,
                 "action": "escalate to a human, do not split the batch to dodge the cap"}
+    # M5 commitment bound: every story must name the in-scope PRD item it delivers.
+    scope = _in_scope_items(project_id)
+    unscoped = [s for s in stories if not _cites_scope(s, scope)]
+    if unscoped:
+        return {"status": "rejected",
+                "error": "story_missing_prd_item",
+                "unscoped_stories": unscoped,
+                "in_scope_prd_items": scope,
+                "action": ("give every story a prd_item naming one of the in-scope PRD "
+                           "items, or drop it; don't propose work the PRD doesn't cover")}
     return {"status": "queued_for_approval",
             "project_id": str(project_id).strip(),
             "count": len(stories),

@@ -28,7 +28,7 @@
    → [Cortex: pulls per-project data, drafts update + proposed stories]
         ├─ STUCK / ESCALATE ─────────────────────────────→ [Human: notified, draft held]
         └─ DONE → [Critic: checks A–E]
-                    ├─ fail A/B/E → back to Cortex with reasons (max 2 revisions) → then STUCK → [Human]
+                    ├─ fail A/B/E → back to Cortex with reasons (max 2 revisions) → then ESCALATE → [Human]
                     ├─ fail C/D  → ESCALATE immediately ────────────────────────→ [Human]
                     └─ pass      → [PM review checkpoint] → held / queued, nothing posted
 ```
@@ -67,7 +67,7 @@ An independent critic (separate model call, own context; never sees Cortex's dra
   - **`wrong_ids`, `untraceable_claim`, `story_off_prd` → revise.** These are drafting mistakes Cortex can usually fix with the critic's reasons.
   - **`forbidden_commitment`, `confidential_leak` → escalate immediately.** These go straight to a human.
   - Every failure is also **logged** to the run log.
-- **Revision cap:** max **2** revisions, then **stuck + notify the human** (matches the M2 loop spec and `CORTEX_MAX_REVISIONS=2`). In M2 and M3, real mistakes were fixed in a single revision: Cortex claimed stories were "queued" without calling `propose_stories` (caught by the loop's code check), and an invented "58% activation" metric (caught by the critic). Both kinds of rejection count toward the same cap, so two gives some margin.
+- **Revision cap:** max **2** revisions, then **escalate + notify the human** (`CORTEX_MAX_REVISIONS=2`; changed from stuck in M5, budget caps escalate). In M2 and M3, real mistakes were fixed in a single revision: Cortex claimed stories were "queued" without calling `propose_stories` (caught by the loop's code check), and an invented "58% activation" metric (caught by the critic). Both kinds of rejection count toward the same cap, so two gives some margin.
 - **Pass action:** the draft advances to the **PM review checkpoint** and is held there, never sent automatically (M1 action 9: no publish tool).
 
 ## 6. State: shared vs isolated
@@ -88,11 +88,11 @@ Measured on the simulated fixture data (gpt-4o-mini):
 |---|---|---|---|
 | Clean, critic passes first time | ~3 Cortex + 1 critic | ~$0.02 | ~10–15 s |
 | One revision | ~4–5 Cortex + 2 critic | ~$0.045–0.05 | ~20 s |
-| Worst case at the revision cap (2 revisions → stuck) | ~5–6 Cortex + 3 critic | ~$0.07 (est.) | ~30 s |
+| Worst case at the revision cap (2 revisions → escalate) | ~5–6 Cortex + 3 critic | ~$0.07 (est.) | ~30 s |
 
 - **What the validator adds:** 1 extra model call per draft (~3–5 s), costing about as much as one Cortex drafting call. Each revision adds one Cortex call + one critic call, more than doubling a clean run.
 - **Latency:** irrelevant for a cron job nobody waits on; a draft reaches the PM within ~30 s even in the worst case.
 - **Bound carried to M5:**
-  - **Hard cap (unchanged):** $0.50 per run → stop, hold the draft, notify (stuck exit).
+  - **Hard cap (unchanged):** $0.50 per run → stop, hold the draft, notify (escalate exit).
   - **Soft "churn alert":** flag a run that costs more than **3× the median of recent runs**, logged to the run log + notify, without stopping it. Until there are 5 runs of history (e.g. after adding a connector), fall back to a fixed **$0.10**. A relative rule stays meaningful once real connectors make normal runs bigger.
   - Repeated alerts + the logged rejection codes show *which* check keeps failing; that's a prompt fix, not just a cost problem.

@@ -28,11 +28,13 @@ from __future__ import annotations
 import json
 import os
 import re
+import statistics
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from openai import OpenAI
+from openai import APITimeoutError, BadRequestError, OpenAI
 
 import tools
 from critic import review
@@ -60,6 +62,20 @@ MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "10"))
 # Rough $ per 1M tokens for your chosen model, set to match its pricing.
 PRICE_IN = float(os.environ.get("CORTEX_PRICE_IN_PER_M", "0.15"))
 PRICE_OUT = float(os.environ.get("CORTEX_PRICE_OUT_PER_M", "0.60"))
+# M5 bounds: timeout per run / per model call, daily spend cap, churn alert.
+RUN_TIMEOUT_S = float(os.environ.get("CORTEX_RUN_TIMEOUT_S", "90"))
+CALL_TIMEOUT_S = float(os.environ.get("CORTEX_CALL_TIMEOUT_S", "40"))
+DAILY_CAP_USD = float(os.environ.get("CORTEX_DAILY_CAP_USD", "1.00"))
+CHURN_MULTIPLIER = float(os.environ.get("CORTEX_CHURN_MULTIPLIER", "3"))  # alert at > 3x median
+CHURN_MIN_HISTORY = 5       # ...once there are this many runs; until then:
+CHURN_FALLBACK_USD = 0.10
+# M5 kill switch (soft layer): this file, or CORTEX_HALT=1, stops new and running loops.
+HALT_FILE = Path(__file__).parent / "CORTEX_HALT"
+# M5 context budget: estimated tokens sent per model call, and a size cap on any one
+# tool result so a single huge document can't take over. Priority trimming (M4 order)
+# is planned; today an over-budget call stops the run instead of crashing it.
+CONTEXT_BUDGET_TOKENS = int(os.environ.get("CORTEX_CONTEXT_BUDGET_TOKENS", "32000"))
+MAX_TOOL_RESULT_CHARS = int(os.environ.get("CORTEX_MAX_TOOL_RESULT_CHARS", "24000"))
 # Loop Spec §3 stuck exit: a required pull failing this many times in a row = a tools problem.
 MAX_PULL_FAILURES = 3
 REQUIRED_PULLS = {"get_project", "get_activity"}
@@ -104,10 +120,17 @@ TOOL_SCHEMAS = [
             "query": {"type": "string"}}, "required": []}}},
     {"type": "function", "function": {
         "name": "propose_stories",
-        "description": "Queue a set of backlog stories for human approval (creates nothing; rejected above the item cap).",
+        "description": ("Queue a set of backlog stories for human approval (creates nothing; "
+                        "rejected above the item cap, or if a story doesn't name the in-scope "
+                        "PRD item it delivers)."),
         "parameters": {"type": "object", "properties": {
             "project_id": {"type": "string"},
-            "stories": {"type": "array", "items": {"type": "string"}},
+            "stories": {"type": "array", "items": {
+                "type": "object", "properties": {
+                    "story": {"type": "string"},
+                    "prd_item": {"type": "string",
+                                 "description": "The in-scope PRD item this story delivers."}},
+                "required": ["story", "prd_item"]}},
             "reason": {"type": "string"}}, "required": ["project_id", "stories"]}}},
 ]
 
@@ -177,26 +200,71 @@ def log_event(which: str, **fields) -> dict:
     return entry
 
 
+def past_runs() -> list[dict]:
+    """Every finished run in the run log (entries that recorded how a run stopped)."""
+    path = OUTPUT_DIR / "run-log.jsonl"
+    if not path.exists():
+        return []
+    runs = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if "stop" in entry and "cost_usd" in entry:
+            runs.append(entry)
+    return runs
+
+
+def spent_today() -> float:
+    """Daily cap: total spend of today's finished runs (UTC), from the run log."""
+    today = datetime.now(timezone.utc).date().isoformat()
+    return sum(r["cost_usd"] for r in past_runs() if r["time"].startswith(today))
+
+
+def halt_requested() -> bool:
+    """Kill switch (soft layer): a CORTEX_HALT file next to agent.py, or CORTEX_HALT=1."""
+    return HALT_FILE.exists() or os.environ.get("CORTEX_HALT", "") not in ("", "0")
+
+
+def notify(which: str, kind: str, reason: str) -> None:
+    """Simulated notification: stands in for Teams/Outlook until a connector is wired."""
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with open(OUTPUT_DIR / "notifications.log", "a", encoding="utf-8") as inbox:
+        inbox.write(f"[{stamp}] {kind.upper()} task-{which}: {reason}\n")
+    banner(f"NOTIFY HUMAN ({kind.upper()}): {reason}\n"
+           f"(simulated, written to run-output/notifications.log)")
+
+
 def finish(which: str, kind: str, draft: str, reason: str, cost: float) -> None:
-    """Every run ends here with one of the three Loop Spec exits:
-    success (held at HITL), stuck (give up), or escalate (a human must decide).
-    Each exit is written to the run log; stuck and escalate also notify the human."""
+    """Every run ends here with one of the Loop Spec exits: success (held at HITL),
+    stuck (give up), escalate (a human must decide), or halted (kill switch).
+    Each exit is written to the run log; anything but success also notifies the human."""
     emit_deliverable(which, strip_marker(draft), accepted=(kind == "success"),
                      reason=reason, cost=cost)
 
-    entry = log_event(which, stop=kind, reason=reason, cost_usd=round(cost, 4))
+    history = [r["cost_usd"] for r in past_runs()[-20:] if r["cost_usd"] > 0]
+    log_event(which, stop=kind, reason=reason, cost_usd=round(cost, 4))
 
     if kind != "success":
-        # Simulated notification: stands in for Teams/Outlook until a connector is wired.
-        with open(OUTPUT_DIR / "notifications.log", "a", encoding="utf-8") as inbox:
-            inbox.write(f"[{entry['time']}] {kind.upper()} task-{which}: {reason}\n")
-        banner(f"NOTIFY HUMAN ({kind.upper()}): {reason}\n"
-               f"(simulated, written to run-output/notifications.log)")
+        notify(which, kind, reason)
+
+    # Churn alert (soft): flag an unusually expensive run, don't stop it.
+    if len(history) >= CHURN_MIN_HISTORY:
+        threshold = CHURN_MULTIPLIER * statistics.median(history)
+        basis = f"{CHURN_MULTIPLIER}x the median of the last {len(history)} runs"
+    else:
+        threshold, basis = CHURN_FALLBACK_USD, "the fallback (not enough run history yet)"
+    if cost > threshold:
+        reason = f"run cost ${cost:.4f} exceeds ${threshold:.4f} ({basis})"
+        log_event(which, event="cost_alert", reason=reason, cost_usd=round(cost, 4))
+        notify(which, "cost alert", reason)
 
 
 def run(which: str = "happy") -> None:
-    client = OpenAI()
+    client = OpenAI(timeout=CALL_TIMEOUT_S, max_retries=1)
     bounds = Bounds()
+    started = time.monotonic()
     task = tools.get_task(which)
     if "error" in task:
         print(task)
@@ -204,6 +272,18 @@ def run(which: str = "happy") -> None:
 
     banner(f"CORTEX RUN, fixture: task-{which}  (auto-queue cap {MAX_QUEUE_ITEMS} items)")
     print(task["body"])
+
+    # Refuse to start at all when the kill switch is on or today's budget is spent.
+    if halt_requested():
+        banner("KILL SWITCH ON, refusing to start.")
+        finish(which, "halted", "", "kill switch on (CORTEX_HALT); run not started", 0.0)
+        return
+    already_spent = spent_today()
+    if already_spent >= DAILY_CAP_USD:
+        reason = f"daily cap ${DAILY_CAP_USD:.2f} reached (${already_spent:.4f} spent today)"
+        banner(f"DAILY CAP, {reason}. Refusing to start.")
+        finish(which, "stuck", "", reason, 0.0)
+        return
 
     messages = [
         {"role": "system", "content": CORTEX_SYSTEM},
@@ -223,14 +303,55 @@ def run(which: str = "happy") -> None:
     wants_stories = bool(re.search(r"\bstor(y|ies)\b", task["body"], re.IGNORECASE))
 
     for step in range(1, MAX_ITERATIONS + 1):
+        if halt_requested():
+            # Rollback: queued stories are only proposals held in this run; drop them.
+            dropped = stories_result.get("count", 0) if stories_result else 0
+            reason = (f"kill switch on (CORTEX_HALT) at step {step}; "
+                      f"{dropped} unapproved queued stories discarded")
+            banner(f"KILL SWITCH, {reason}.")
+            finish(which, "halted", last_draft, reason, bounds.cost)
+            return
+        elapsed = time.monotonic() - started
+        if elapsed > RUN_TIMEOUT_S:
+            reason = f"run timeout {RUN_TIMEOUT_S:g}s hit after {elapsed:.0f}s"
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
+            finish(which, "stuck", last_draft, reason, bounds.cost)
+            return
         if bounds.over_cap():
             reason = f"cost cap ${COST_CAP_USD} hit at ${bounds.cost:.4f}"
             banner(f"BOUND TRIPPED, {reason}. Halting and escalating to a human.")
+            finish(which, "escalate", last_draft, reason, bounds.cost)
+            return
+        if already_spent + bounds.cost >= DAILY_CAP_USD:
+            reason = (f"daily cap ${DAILY_CAP_USD:.2f} hit "
+                      f"(${already_spent + bounds.cost:.4f} spent today)")
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
+            finish(which, "stuck", last_draft, reason, bounds.cost)
+            return
+        # Rough estimate (~4 chars per token) of what this call would send.
+        est_tokens = sum(len(json.dumps(m, default=str)) for m in messages) // 4
+        if est_tokens > CONTEXT_BUDGET_TOKENS:
+            reason = (f"context budget exceeded (~{est_tokens} tokens > "
+                      f"{CONTEXT_BUDGET_TOKENS}); required sources too large")
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
             finish(which, "stuck", last_draft, reason, bounds.cost)
             return
 
-        resp = client.chat.completions.create(
-            model=MODEL, messages=messages, tools=active_schemas)
+        try:
+            resp = client.chat.completions.create(
+                model=MODEL, messages=messages, tools=active_schemas)
+        except APITimeoutError:
+            reason = f"model call timed out after {CALL_TIMEOUT_S:g}s"
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
+            finish(which, "stuck", last_draft, reason, bounds.cost)
+            return
+        except BadRequestError as exc:  # backstop: the model's own context limit
+            if "context" not in str(exc).lower():
+                raise
+            reason = "model rejected the call: context window exceeded"
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
+            finish(which, "stuck", last_draft, reason, bounds.cost)
+            return
         bounds.add(resp.usage)
         msg = resp.choices[0].message
 
@@ -246,8 +367,14 @@ def run(which: str = "happy") -> None:
                 source_log.append(f"{fn}({args}) -> {json.dumps(result)}")
                 print(f"\n[step {step}] TOOL {fn}({args})")
                 print(f"          -> {json.dumps(result)[:300]}")
+                content = json.dumps(result)
+                if len(content) > MAX_TOOL_RESULT_CHARS:
+                    omitted = len(content) - MAX_TOOL_RESULT_CHARS
+                    content = (content[:MAX_TOOL_RESULT_CHARS]
+                               + f" ...[TRUNCATED: {omitted} chars omitted by the size cap]")
+                    print(f"          (result truncated by the size cap: {omitted} chars omitted)")
                 messages.append({"role": "tool", "tool_call_id": call.id,
-                                 "content": json.dumps(result)})
+                                 "content": content})
 
                 if fn in REQUIRED_PULLS:
                     pull_failures = pull_failures + 1 if "error" in result else 0
@@ -255,7 +382,10 @@ def run(which: str = "happy") -> None:
                     stories_result = result
                 if fn == "get_project" and "error" not in result:
                     requested_project = result.get("project_id")
-                if fn == "get_activity" and "error" not in result and result.get("activity"):
+                # A truncated activity pull is partial data, not usable activity (M4:
+                # priority-2 sources are never cut), so it can't satisfy the grading check.
+                if (fn == "get_activity" and "error" not in result and result.get("activity")
+                        and len(json.dumps(result)) <= MAX_TOOL_RESULT_CHARS):
                     activity_projects.add(result.get("project_id"))
 
             if pull_failures >= MAX_PULL_FAILURES:
@@ -305,32 +435,43 @@ def run(which: str = "happy") -> None:
 
         # Validate the proposed output independently.
         banner("CRITIC, independent validation")
-        verdict = review(client, MODEL, proposed, "\n".join(source_log))
+        try:
+            verdict = review(client, MODEL, proposed, "\n".join(source_log))
+        except APITimeoutError:
+            reason = f"critic call timed out after {CALL_TIMEOUT_S:g}s"
+            banner(f"BOUND TRIPPED, {reason}. Halting.")
+            finish(which, "stuck", last_draft, reason, bounds.cost)
+            return
         # Estimate critic spend too.
         bounds.cost += (verdict["_usage"]["prompt"] * PRICE_IN
                         + verdict["_usage"]["completion"] * PRICE_OUT) / 1_000_000
         print(json.dumps({k: v for k, v in verdict.items() if k != "_usage"}, indent=2))
 
-        # Success (Loop Spec §3): critic pass AND, if the task asked for stories (or any
-        # were proposed), propose_stories actually queued them for approval. Listing
-        # stories in the text is not the same as queueing them.
-        if stories_result is None:
-            stories_ok = not wants_stories
-            stories_problem = ("the task asked for stories but propose_stories was never "
-                               "called, so nothing is queued; call it with the stories")
-        else:
-            stories_ok = stories_result.get("status") == "queued_for_approval"
-            stories_problem = ("the proposed stories were not queued for approval: "
-                               f"{json.dumps(stories_result)}")
-        if verdict["verdict"] == "pass" and stories_ok:
+        # Success (Loop Spec §3): critic pass AND the loop's own checks:
+        # - if the task asked for stories (or any were proposed), propose_stories actually
+        #   queued them; listing stories in the text is not the same as queueing them.
+        # - the draft has a "Context used / excluded" section, so the PM approves the
+        #   context together with the draft (M5 HITL checkpoint for "decide context").
+        loop_problems = []
+        if stories_result is None and wants_stories:
+            loop_problems.append("the task asked for stories but propose_stories was never "
+                                 "called, so nothing is queued; call it with the stories")
+        elif stories_result is not None and stories_result.get("status") != "queued_for_approval":
+            loop_problems.append("the proposed stories were not queued for approval: "
+                                 f"{json.dumps(stories_result)}")
+        if not re.search(r"context used", proposed, re.IGNORECASE):
+            loop_problems.append("the draft has no 'Context used / excluded' section listing "
+                                 "the items relied on and the items ignored (and why)")
+        if verdict["verdict"] == "pass" and not loop_problems:
             banner(f"HITL CHECKPOINT, status update + any proposed stories queued for "
                    f"your review. Nothing posted, no commitments made. "
                    f"Run cost ≈ ${bounds.cost:.4f}")
             finish(which, "success", proposed, "validator passed", bounds.cost)
             return
-        if verdict["verdict"] == "pass":
-            print(f"\n-> loop check failed: {stories_problem}")
-            verdict["reasons"] = [stories_problem]
+        if loop_problems:
+            print(f"\n-> loop check failed: {'; '.join(loop_problems)}")
+            verdict["reasons"] = (verdict["reasons"] if verdict["verdict"] == "fail"
+                                  else []) + loop_problems
 
         # Orchestration Map §5: every rejection is logged, not just how the run ended.
         log_event(which, event="rejection",
@@ -351,7 +492,7 @@ def run(which: str = "happy") -> None:
             reason = f"validator rejected {MAX_REVISIONS}x (revision cap)"
             banner(f"REVISION CAP hit ({MAX_REVISIONS}). Escalating to a human "
                    f"instead of looping. Run cost ≈ ${bounds.cost:.4f}")
-            finish(which, "stuck", last_draft, reason, bounds.cost)
+            finish(which, "escalate", last_draft, reason, bounds.cost)
             return
 
         revisions += 1
@@ -366,7 +507,9 @@ def run(which: str = "happy") -> None:
 
     banner(f"MAX ITERATIONS ({MAX_ITERATIONS}) reached without finishing. "
            f"Escalating. Run cost ≈ ${bounds.cost:.4f}")
-    finish(which, "stuck", last_draft,
+    # Budget caps (iterations, revisions, per-run cost) escalate: Cortex ran out of
+    # budget and a human decides. Infrastructure failures stay STUCK.
+    finish(which, "escalate", last_draft,
            f"max iterations ({MAX_ITERATIONS}) reached", bounds.cost)
 
 

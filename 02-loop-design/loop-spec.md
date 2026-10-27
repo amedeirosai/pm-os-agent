@@ -35,8 +35,8 @@ Two jobs, each with its own finish line. Cortex never updates the backlog or pos
 | Condition | What it looks like (detectable) | What happens |
 |---|---|---|
 | **Success** | All of: critic returns `"verdict": "pass"`; draft saved to `run-output/`; for the stories run, `propose_stories` returned `queued_for_approval` with ≤ 10 items. | Stop at the HITL checkpoint. Draft + stories held for human review; nothing posted. |
-| **Stuck / give up** | Any of: a required data pull (project/activity) fails 3 times in a row · required data is missing or empty · critic rejects twice (revision cap) · 8 iterations or $0.50 spent without success. | Stop, log the reason, hold the last draft, and **always notify the human**. |
-| **Escalate to human** | Any of: a security vulnerability in the pulled data · confidential or cross-project content would enter the draft · a sev-1 issue or `launch_hold` flag · the draft states a release date or ship commitment · the story batch exceeds the cap of 10 · a jailbreak attempt (task tries to make Cortex post, commit, or ignore its rules). | Stop, hold the draft, notify the human with the reason. Ties to M1 HITL checkpoints: actions 1, 5, 6→7, 8, 9. |
+| **Stuck / give up** | Any of: a required data pull (project/activity) fails 3 times in a row · required data is missing or empty · a run timeout or daily spend cap (M5). | Stop, log the reason, hold the last draft, and **always notify the human**. |
+| **Escalate to human** | Any of: a security vulnerability in the pulled data · confidential or cross-project content would enter the draft · a sev-1 issue or `launch_hold` flag · the draft states a release date or ship commitment · the story batch exceeds the cap of 10 · a jailbreak attempt (task tries to make Cortex post, commit, or ignore its rules) · a budget cap: critic rejects twice (revision cap), 8 iterations, or $0.50 spent without success (changed from stuck in M5: Cortex ran out of budget, a human decides). | Stop, hold the draft, notify the human with the reason. Ties to M1 HITL checkpoints: actions 1, 5, 6→7, 8, 9. |
 
 ## 4. State
 
