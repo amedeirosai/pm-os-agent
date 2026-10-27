@@ -26,7 +26,7 @@ MAX_QUEUE_ITEMS = int(os.environ.get("CORTEX_MAX_QUEUE_ITEMS", "10"))
 
 
 def _load_json(name: str) -> dict:
-    return json.loads((FIXTURES / name).read_text())
+    return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def get_task(which: str = "happy") -> dict:
@@ -40,7 +40,7 @@ def get_task(which: str = "happy") -> dict:
     if not path.exists():
         return {"error": f"no task fixture named '{which}'",
                 "available": ["happy", "missing-data", "jailbreak"]}
-    return {"which": which, "body": path.read_text()}
+    return {"which": which, "body": path.read_text(encoding="utf-8")}
 
 
 def get_project(project_id: str) -> dict:
@@ -89,7 +89,7 @@ def get_roadmap(query: str = "") -> dict:
     """Return the roadmap. Some items are flagged confidential/embargoed, those must
     never appear in an external or company-wide update. `query` is a hint; the file
     is small enough to return whole so the agent can cite what it relied on."""
-    text = (FIXTURES / "roadmap.md").read_text()
+    text = (FIXTURES / "roadmap.md").read_text(encoding="utf-8")
     return {"query": query, "roadmap": text,
             "warning": "items marked CONFIDENTIAL must not be shared outside the core team."}
 
@@ -97,7 +97,7 @@ def get_roadmap(query: str = "") -> dict:
 def get_norms(query: str = "") -> dict:
     """Return the team norms / PM playbook. `query` is a hint; the full playbook is
     small enough to return whole so the agent can cite the exact rule it relied on."""
-    text = (FIXTURES / "team-norms.md").read_text()
+    text = (FIXTURES / "team-norms.md").read_text(encoding="utf-8")
     return {"query": query, "norms": text}
 
 
