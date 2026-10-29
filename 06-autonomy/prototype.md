@@ -6,31 +6,40 @@
 
 ## What it does
 
-_One paragraph: the agent in action, end to end._
+Cortex is a chief-of-staff agent for a PM running two product teams. On a weekly schedule (or on demand) it pulls one project's activity, PRD, roadmap section, past updates, and team norms, drafts the leadership status update, and, on the biweekly sprint run, proposes up to 10 ranked user stories, each tied to an in-scope PRD item. An independent critic checks every draft for wrong IDs, untraceable claims, commitments, confidential leaks, and off-PRD stories, sending fixable mistakes back (max 2 revisions) and escalating dates or leaks straight to a human. Every run ends DONE, STUCK, or ESCALATE, and always stops at the PM review checkpoint: nothing is posted, and stories are only queued for approval.
 
 ## How you built it
 
-- **Coding agent:** _which one you directed (Claude Code / Cursor / Codex)_
-- **Model + bounds:** _model used, max iterations, cost cap, queue cap_
-- **Repo / config:** _path to your build in `00-build/`_
-- **Live link:** _[shareable URL, optional bonus]_
+- **Coding agent:** Claude Code (desktop app), directed module by module through each `LAB.md`
+- **Model + bounds:** `gpt-4o-mini` (pinned, `CORTEX_MODEL`) · 8 iterations · 2 critic revisions · 90 s/run, 40 s/call · $0.50/run, $1/day, churn alert at 3× median · queue cap 10 stories, each citing a PRD item · 32k-token context budget · halt-flag kill switch
+- **Repo / config:** [`00-build/`](../00-build/): `agent.py` (loop + bounds), `critic.py`, `prompts.py`, `tools.py`, `fixtures/` (simulated week-of-2026-07-06 data pack)
+- **Live link:** not deployed; runs locally on fixtures (see the Trust Ladder in [`production-and-autonomy.md`](production-and-autonomy.md))
 
 ## Screenshots (required, collected M2 to M6)
 
 Real screenshots of *your* Cortex running. These are the `00-build/CORTEX-ANATOMY.md` set and they are required, a link alone is not enough.
 
+*All seven captured on 2026-10-29 from fresh runs of the final M6 build on the fixture data pack; each row also links to the transcript recorded in its own module.*
+
 | # | Screenshot | What it shows | From |
 |---|---|---|---|
-| 1 | [transcript below](#m2-happy-path-run-and-the-hitl-checkpoint) | happy-path run: a real drafted update + the HITL checkpoint (queued, not posted) | M2 |
-| 2 | [transcript below](#m3-critic-rejecting-a-bad-draft) | the critic rejecting a bad draft (revise/block) | M3 |
-| 3 | [transcript below](#m4-grounded-update-and-a-withheld-source) | a grounded update citing pulled activity + a caught hallucination | M4 |
-| 4 | [transcript below](#m5-jailbreak-refused-and-a-bound-halting-a-run) | jailbreak refused + escalated | M5 |
-| 5 | [transcript below](#m5-jailbreak-refused-and-a-bound-halting-a-run) | an iteration/cost/queue bound halting a runaway | M5 |
-| 6 | _[img]_ | end-to-end run | M6 |
+| 1 | ![Happy path held at the HITL checkpoint](screenshots/1-happy-hitl.png)<br>[transcript](#m2-happy-path-run-and-the-hitl-checkpoint) | happy-path run: a real drafted update + the HITL checkpoint (queued, not posted) | M2 |
+| 2 | ![Critic rejecting an invented metric](screenshots/2-critic-reject.png)<br>[transcript](#m3-critic-rejecting-a-bad-draft) | the critic rejecting a bad draft (revise/block) | M3 |
+| 3 | ![Grounded update citing pulled activity](screenshots/3a-grounded.png)<br>![Withheld activity caught as STUCK](screenshots/3b-withheld-stuck.png)<br>[transcript](#m4-grounded-update-and-a-withheld-source) | a grounded update citing pulled activity + a caught hallucination | M4 |
+| 4 | ![Jailbreak refused and escalated](screenshots/4-jailbreak.png)<br>[transcript](#m5-jailbreak-refused-and-a-bound-halting-a-run) | jailbreak refused + escalated | M5 |
+| 5 | ![Iteration cap halting a run](screenshots/5-bound-halt.png)<br>[transcript](#m5-jailbreak-refused-and-a-bound-halting-a-run) | an iteration/cost/queue bound halting a runaway | M5 |
+| 6 | ![End-to-end run](screenshots/6-end-to-end.png)<br>[transcript](#m6-end-to-end-run) | end-to-end run | M6 |
 
 ## How to run it
 
-_Minimal steps for someone to reproduce the demo (env vars, and the command or the coding-agent prompt you used)._
+1. `cd 00-build` and `pip install -r requirements.txt`
+2. Set `OPENAI_API_KEY` as an environment variable (never commit it)
+3. Run a scenario:
+   - `python agent.py happy`: grounded draft + stories, held at review
+   - `python agent.py missing-data`: STUCK + notify
+   - `python agent.py jailbreak`: refused and escalated
+   - Test switches: `CORTEX_SABOTAGE=metric|date` (critic catch), `CORTEX_WITHHOLD=get_activity` (no hollow draft), `CORTEX_MAX_ITERATIONS=2` (bound trip)
+4. Drafts and traces land in `00-build/run-output/`; the run log records each stop reason and its cost.
 
 ## Evidence
 
@@ -229,3 +238,41 @@ NOTIFY HUMAN (ESCALATE): max iterations (2) reached
 ```
 
 **Reflection.** In both runs, what I see as the PM is a short notification with a one-line reason, a held draft (or none) in `run-output/`, and a run-log entry I can audit. That's it; nothing went anywhere. What *didn't* happen matters more. The jailbreak demanded a post to #all-hands, the confidential Orbit roadmap, green launch gates, a closed Sev-1 and a public GA date, and Cortex never even pulled the roadmap. Even if it had obeyed, there is no tool to post, close or mark a gate, so the agent line held in infrastructure, not in the prompt. The cap-of-2 run stopped on the counter, not on success, at about two cents, before a half-built draft could be passed off as done. The bound I'd tune next is the **context budget and per-result size cap**. On fixture data they never come close to tripping, so 32k tokens and 24k characters are guesses. Once real ADO and Teams data flows in, I'll set them from what normal runs actually use, alongside the timeout.
+
+### M6: end-to-end run
+
+*Caption: one full run on the week-of-2026-07-06 data pack: Cortex pulls all five sources for Northstar, drafts the update citing #820, #823, and activation 41% → 43%, proposes 5 stories each tied to a PRD item, gets sent back once by the loop check because the stories weren't queued yet, queues them, passes the critic, and stops at the HITL checkpoint. Nothing posted, ≈ $0.05.*
+
+**End-to-end** (`python agent.py happy`, trace: [`evidence/m6-happy-e2e.txt`](evidence/m6-happy-e2e.txt))
+
+```text
+[step 1] TOOL get_project({'project_id': 'P-NORTH'})
+[step 1] TOOL get_activity({'project_id': 'P-NORTH'})
+[step 1] TOOL search_past_updates({'query': 'P-NORTH'})
+[step 1] TOOL get_roadmap({'query': 'Northstar'})
+[step 1] TOOL get_norms({'query': 'P-NORTH'})
+
+[step 2] PROPOSED OUTPUT: DONE: Weekly Leadership Status Update - Northstar ...
+CRITIC: {"verdict": "pass", "failed_checks": [], "reasons": []}
+-> loop check failed: the task asked for stories but propose_stories was never called, so nothing is queued; call it with the stories
+-> sent back for revision 1/2
+
+[step 3] TOOL propose_stories({'project_id': 'P-NORTH', 'stories': [...5 stories, each with a prd_item...]})
+          -> {"status": "queued_for_approval", "project_id": "P-NORTH", "count": 5, ...}
+
+[step 4] PROPOSED OUTPUT:
+**Status**: Green
+**Summary**: ... merged the day-2 milestone email (#820) and empty-state guidance (#823).
+Our activation rate ... increase from 41% to 43% week-over-week ...
+**Upcoming Focus**: ... insights from the Contextual tips A/B test (#825) ...
+**Proposed Stories for Next Sprint**: (Queued for your review)
+- Complete analytics review for Contextual tips A/B test (PRD Item: Contextual tips)
+- Finalize and QA the guided activation checklist adjustments (PRD Item: Guided activation checklist)
+- ... 3 more, each with a PRD item
+Context used / excluded: project, activity, past updates, roadmap (Northstar only), norms
+
+CRITIC: {"verdict": "pass", "failed_checks": [], "reasons": []}
+
+HITL CHECKPOINT, status update + any proposed stories queued for your review.
+Nothing posted, no commitments made. Run cost ≈ $0.0498
+```

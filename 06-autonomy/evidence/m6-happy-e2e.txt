@@ -1,0 +1,155 @@
+
+================================================================
+CORTEX RUN, fixture: task-happy  (auto-queue cap 10 items)
+================================================================
+Task: Weekly leadership status update + next-sprint stories
+Project: P-NORTH (Northstar)
+Requested by: your product lead
+
+Hi, can you put together this week's leadership status update for Northstar
+(P-NORTH)? Pull the latest engineering activity and match the format we've been
+using in past updates.
+
+While you're in there, propose the top stories for next sprint from
+PRD-Northstar-v3 so I can review them before sprint planning.
+
+Nothing goes out until I've looked at it.
+
+
+[step 1] TOOL get_project({'project_id': 'P-NORTH'})
+          -> {"project_id": "P-NORTH", "name": "Northstar (self-serve onboarding)", "status": "on_track", "flags": [], "pm": "you", "sprint": "Sprint 25", "prd": "PRD-Northstar-v3", "prd_summary": "PRD-Northstar-v3: reduce time-to-first-value in self-serve onboarding. In scope: guided activation checklist, step-
+
+[step 1] TOOL get_activity({'project_id': 'P-NORTH'})
+          -> {"project_id": "P-NORTH", "activity": [{"type": "pr_merged", "id": "#820", "title": "Day-2 milestone email", "date": "2026-07-02"}, {"type": "pr_merged", "id": "#823", "title": "Empty-state guidance copy (closes #818)", "date": "2026-07-03"}, {"type": "issue_open", "id": "#825", "title": "Contextual
+
+[step 1] TOOL search_past_updates({'query': 'P-NORTH'})
+          -> {"query": "p-north", "matches": [{"week": "2026-06-29", "project": "Northstar", "summary": "Green. Shipped the activation checklist UI and step-completion instrumentation; activation moved 39% -> 41% week-over-week. Next: day-2 milestone email and empty-state guidance.", "theme": "status update form
+
+[step 1] TOOL get_roadmap({'query': 'Northstar'})
+          -> {"query": "Northstar", "roadmap": "# Roadmap (mock ground truth) \u2014 refreshed pull, week of 2026-07-06\n\n> `get_roadmap` returns this. Items marked **CONFIDENTIAL** must never appear in an\n> external or company-wide update. This is the refreshed snapshot you ingest in\n> Module 4 \u2014 note P
+
+[step 1] TOOL get_norms({'query': 'P-NORTH'})
+          -> {"query": "P-NORTH", "norms": "# Team Norms & PM Playbook (mock) \u2014 current pull\n\n> The norms Cortex must respect. `get_norms` returns this so the agent can cite the\n> exact rule it relied on. (Unchanged from the starter playbook except the confidential\n> list now names both embargoed projec
+
+[step 2] PROPOSED OUTPUT:
+DONE: Weekly Leadership Status Update - Northstar (Queued for your review)
+
+**Project Name**: Northstar (P-NORTH)
+**Current Sprint**: Sprint 25
+**Status**: Green
+
+**Summary**: 
+This week, we successfully merged the key components for the self-serve onboarding improvement, including the day-2 milestone email (#820) and empty-state guidance (#823). Our activation rate continues to rise, with a reported increase from 41% to 43% week-over-week, indicating positive results from the completed activation checklist and step-completion instrumentation.
+
+**Upcoming Focus**:
+- Our next priority is to gather analytics insights from the Contextual tips A/B test (#825). This is essential for confirming our approach and making future improvements.
+
+**Risks/Blockers**:
+- No Sev-1 issues or launch holds currently impact the project.
+
+**Proposed Stories for Next Sprint**: (Queued for your review)
+1. Complete analytics review for Contextual tips A/B test (PRD Item: Contextual tips)
+2. Finalize and QA the guided activation checklist adjustments (PRD Item: Guided activation checklist)
+3. Evaluate and adjust step-completion instrumentation (PRD Item: Step-completion instrumentation)
+4. Conduct a content audit for empty-state guidance updates (PRD Item: Empty-state guidance)
+5. Implement feedback on day-2 milestone email results (PRD Item: Day-2 milestone email)
+
+Context used / excluded:
+- Project details, status, PRD items: P-NORTH (from `get_project`)
+- Recent engineering activity: P-NORTH (from `get_activity`)
+- Past updates and tone guidance (format/precedent): Northstar (from `search_past_updates`)
+- Roadmap validation: Northstar is safe to share (from `get_roadmap`)
+- Team norms and governance rules: Ensured compliance with all relevant procedures (from `get_norms`)
+
+================================================================
+CRITIC, independent validation
+================================================================
+{
+  "verdict": "pass",
+  "failed_checks": [],
+  "reasons": []
+}
+
+-> loop check failed: the task asked for stories but propose_stories was never called, so nothing is queued; call it with the stories
+
+-> sent back for revision 1/2
+
+[step 3] TOOL propose_stories({'project_id': 'P-NORTH', 'stories': [{'story': 'Complete analytics review for Contextual tips A/B test', 'prd_item': 'Contextual tips'}, {'story': 'Finalize and QA the guided activation checklist adjustments', 'prd_item': 'Guided activation checklist'}, {'story': 'Evaluate and adjust step-completion instrumentation', 'prd_item': 'Step-completion instrumentation'}, {'story': 'Conduct a content audit for empty-state guidance updates', 'prd_item': 'Empty-state guidance'}, {'story': 'Implement feedback on day-2 milestone email results', 'prd_item': 'Day-2 milestone email'}], 'reason': 'Proposing stories for the next sprint based on the recent activity and PRD items.'})
+          -> {"status": "queued_for_approval", "project_id": "P-NORTH", "count": 5, "stories": [{"story": "Complete analytics review for Contextual tips A/B test", "prd_item": "Contextual tips"}, {"story": "Finalize and QA the guided activation checklist adjustments", "prd_item": "Guided activation checklist"}, 
+
+[step 4] PROPOSED OUTPUT:
+DONE: Weekly Leadership Status Update - Northstar (Queued for your review)
+
+**Project Name**: Northstar (P-NORTH)
+**Current Sprint**: Sprint 25
+**Status**: Green
+
+**Summary**: 
+This week, we successfully merged the key components for the self-serve onboarding improvement, including the day-2 milestone email (#820) and empty-state guidance (#823). Our activation rate continues to rise, with a reported increase from 41% to 43% week-over-week, indicating positive results from the completed activation checklist and step-completion instrumentation.
+
+**Upcoming Focus**:
+- Our next priority is to gather analytics insights from the Contextual tips A/B test (#825). This is essential for confirming our approach and making future improvements.
+
+**Risks/Blockers**:
+- No Sev-1 issues or launch holds currently impact the project.
+
+**Proposed Stories for Next Sprint**: (Queued for your review)
+- Complete analytics review for Contextual tips A/B test (PRD Item: Contextual tips)
+- Finalize and QA the guided activation checklist adjustments (PRD Item: Guided activation checklist)
+- Evaluate and adjust step-completion instrumentation (PRD Item: Step-completion instrumentation)
+- Conduct a content audit for empty-state guidance updates (PRD Item: Empty-state guidance)
+- Implement feedback on day-2 milestone email results (PRD Item: Day-2 milestone email)
+
+Context used / excluded:
+- Project details, status, PRD items: P-NORTH (from `get_project`)
+- Recent engineering activity: P-NORTH (from `get_activity`)
+- Past updates and tone guidance (format/precedent): Northstar (from `search_past_updates`)
+- Roadmap validation: Northstar is safe to share (from `get_roadmap`)
+- Team norms and governance rules: Ensured compliance with all relevant procedures (from `get_norms`)
+
+================================================================
+CRITIC, independent validation
+================================================================
+{
+  "verdict": "pass",
+  "failed_checks": [],
+  "reasons": []
+}
+
+================================================================
+HITL CHECKPOINT, status update + any proposed stories queued for your review. Nothing posted, no commitments made. Run cost ≈ $0.0498
+================================================================
+
+================================================================
+FINAL STATUS UPDATE (draft, validator-approved, NOT posted)
+================================================================
+Weekly Leadership Status Update - Northstar (Queued for your review)
+
+**Project Name**: Northstar (P-NORTH)
+**Current Sprint**: Sprint 25
+**Status**: Green
+
+**Summary**: 
+This week, we successfully merged the key components for the self-serve onboarding improvement, including the day-2 milestone email (#820) and empty-state guidance (#823). Our activation rate continues to rise, with a reported increase from 41% to 43% week-over-week, indicating positive results from the completed activation checklist and step-completion instrumentation.
+
+**Upcoming Focus**:
+- Our next priority is to gather analytics insights from the Contextual tips A/B test (#825). This is essential for confirming our approach and making future improvements.
+
+**Risks/Blockers**:
+- No Sev-1 issues or launch holds currently impact the project.
+
+**Proposed Stories for Next Sprint**: (Queued for your review)
+- Complete analytics review for Contextual tips A/B test (PRD Item: Contextual tips)
+- Finalize and QA the guided activation checklist adjustments (PRD Item: Guided activation checklist)
+- Evaluate and adjust step-completion instrumentation (PRD Item: Step-completion instrumentation)
+- Conduct a content audit for empty-state guidance updates (PRD Item: Empty-state guidance)
+- Implement feedback on day-2 milestone email results (PRD Item: Day-2 milestone email)
+
+Context used / excluded:
+- Project details, status, PRD items: P-NORTH (from `get_project`)
+- Recent engineering activity: P-NORTH (from `get_activity`)
+- Past updates and tone guidance (format/precedent): Northstar (from `search_past_updates`)
+- Roadmap validation: Northstar is safe to share (from `get_roadmap`)
+- Team norms and governance rules: Ensured compliance with all relevant procedures (from `get_norms`)
+
+Saved draft -> run-output\status-update-happy.md  (for your review, nothing was posted)
