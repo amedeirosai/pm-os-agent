@@ -1,110 +1,87 @@
-# Cortex: PM Chief-of-Staff Agent
+# Cortex, a PM Chief-of-Staff Agent
 
-> My final project for Product School's **Agentic Loops for PMs** certification. A chief-of-staff agent that turns raw inputs (project state, GitHub/Jira activity, roadmap, past updates) into finished PM work, a leadership status update and a proposed backlog for a human to clear, built loop-first, bounded, grown into a fleet, and shipped up the Trust Ladder.
+> A PM chief-of-staff agent, one agent plus an independent critic, that drafts my weekly leadership update and a PRD-scoped story batch from pulled project data, then stops at my review with nothing posted.
 
-This is a **template repo**. Click **Use this template → Create a new repository**, name it `pm-os-agent` (or your own agent's name), and fill in one folder per module as you go.
+_Andreia Medeiros · Agentic Loops for PMs Cohort · October 2026_
 
----
+Repo: https://github.com/amedeirosai/pm-os-agent
 
-## The story this repo tells
-
-Strategy first, structure second. This repo is the **build journey of one agent, Cortex**, laid out as the exact sequence of decisions a PM makes when shipping an AI agent team. **Each folder is one framework from the course**, in the order you actually use it, and each ends in a **validation point** — a deliverable, a validator, or an eval — that proves the step is sound before you build on the next one.
-
-Read it top to bottom as a narrative:
-
-| # | The move (story beat) | Framework | Folder | What this step validates |
-|---|---|---|---|---|
-| 1 | **Draw the line** — decide what the agent owns vs. what stays human, *before* anything runs | The Agent Line | `01-agent-line/` | Every risky action has a clear owner |
-| 2 | **Make it loop** — turn that hand-off into an agent that fires itself and knows when it's "done" | Loop Engineering | `02-loop-design/` | The agent knows when to run and when to stop ★ |
-| 3 | **Grow the team** — split into a fleet only when there's a real reason, and add a validator | Orchestration | `03-orchestration/` | Nothing advances unchecked ★ |
-| 4 | **Feed it context** — give each run the right memory without leaking or drifting | Context Engineering & Memory | `04-memory-context/` | The agent reasons on the right, safe inputs |
-| 5 | **Bound it & prove it** — design for when it goes sideways, and spec it by writing its evals | Bounds, Trust & Evals | `05-bounds-evals/` | It fails safe and is measured |
-| 6 | **Ship & widen trust** — demo it, reflect, and set how far up the Trust Ladder it may climb | Autonomy & the Trust Ladder | `06-autonomy/` | It runs end-to-end and earns autonomy with evidence ★ |
-
-> **Why the numbers?** The folders keep a leading number so they sort in build order on GitHub; the name after it (`-agent-line`, `-loop-design`, …) is the framework. Number = *when*, name = *what*.
+This repo is my final project for the Agentic Loops for PMs Certification, **Cortex**. Each module’s artifact lives in its own folder; this README is the dashboard and the pitch.
 
 ---
 
-## How each lab runs: paste the module's `LAB.md` into your AI assistant
+## Module artifacts
 
-Every module folder ships a **`LAB.md`** — a runbook written *for your AI assistant*. Instead of reading a
-guide and filling in a form, you **paste the module's `LAB.md` into your coding agent (Claude Code, Cursor,
-Codex) or a chatbot (ChatGPT, Claude, Gemini)** and it walks you through the lab: it asks for your
-decisions one step at a time, writes the deliverable file, runs Cortex where needed, and commits.
+### M1 · The Agent Line
+- **Agent-line map**: [`01-agent-line/agent-line-map.md`](01-agent-line/agent-line-map.md)
 
-| Module | Paste this into your assistant |
-|---|---|
-| M1 | `01-agent-line/LAB.md` |
-| M2 | `02-loop-design/LAB.md` |
-| M3 | `03-orchestration/LAB.md` |
-| M4 | `04-memory-context/LAB.md` |
-| M5 | `05-bounds-evals/LAB.md` |
-| M6 | `06-autonomy/LAB.md` |
+### M2 · Loop Engineering
+- **Loop spec**: [`02-loop-design/loop-spec.md`](02-loop-design/loop-spec.md)
 
-A good opener: *"Open `05-bounds-evals/LAB.md` in this repo and walk me through it one step at a time.
-Stop and ask me at every decision."* If your assistant can't read files (plain ChatGPT), paste the
-`LAB.md` contents directly and it will print each block for you to paste into the deliverable file.
+### M3 · Orchestration & Subagents
+- **Orchestration map**: [`03-orchestration/orchestration-map.md`](03-orchestration/orchestration-map.md)
 
-> The **prompt pack** in [`00-build/PROMPTS.md`](00-build/PROMPTS.md) is the quick-reference / fallback:
-> the individual prompts the `LAB.md` files use, if you'd rather drive step by step yourself.
+### M4 · Choose What Each Agent Step Is Allowed to See
+- **Memory & context plan**: [`04-memory-context/memory-and-context.md`](04-memory-context/memory-and-context.md)
 
----
+### M5 · Bounds & Evals
+- **Bounds & evals**: [`05-bounds-evals/bounds-and-evals.md`](05-bounds-evals/bounds-and-evals.md)
 
-## Deliverables at a glance
-
-| # | Deliverable | Module | Status | File |
-|---|---|---|---|---|
-| 1 | **Working agent demo** (real run screenshots; link optional) | Built across labs | ☐ | `06-autonomy/prototype.md` |
-| 2 | **Loop Spec** | M2 | ☐ | `02-loop-design/loop-spec.md` |
-| 3 | **Orchestration Map** | M3 | ☐ | `03-orchestration/orchestration-map.md` |
-| 4 | **Insights: build process** | M6 | ☐ | `06-autonomy/build-insights.md` |
-| 5 | **Bounds, trust & autonomy strategy** | M6 | ☐ | `06-autonomy/production-and-autonomy.md` |
-
-## The agent in one sentence
-
-_What does your agent do, for whom, and where is the agent line, what does it decide vs. what stays human?_
-
-## Build & demo
-
-- **How you built it:** _which coding agent (Claude Code / Cursor / Codex) you directed, start in `00-build/`_
-- **Demo link:** _[optional shareable URL]_
-- **Run screenshots:** _required, collected M2 to M6 in `06-autonomy/prototype.md`_
-
-## Where it sits on the Trust Ladder
-
-_shadow · assisted · supervised · bounded-autonomous · autonomous, which rung today, and what eval evidence would let it climb the next one?_
+### M6 · Autonomy & Production
+- **Production & autonomy plan**: [`06-autonomy/production-and-autonomy.md`](06-autonomy/production-and-autonomy.md)
+- **Prototype write-up**: [`06-autonomy/prototype.md`](06-autonomy/prototype.md)
+- **Build insights**: [`06-autonomy/build-insights.md`](06-autonomy/build-insights.md)
+- **Pitch deck**: [`06-autonomy/pitch.html`](06-autonomy/pitch.html)
+- **Live agent**: [`00-build/agent.py`](00-build/agent.py)
 
 ---
 
-## How to submit
+## Ship plan
 
-- Turn the five deliverable files into your final deck (use the **Final Project Deliverables Builder** that ships with the course, it generates `pitch.html` + a clean `README.md` for you, or a tool like Gamma).
-- Submit your own copy to the learning platform within 7 days of your cohort ending.
+### Autonomy dial (per segment)
+- **Me (PM owner):** Supervised. I built it and know its failure modes; I review every draft at the HITL checkpoint.
+- **Covering / new PM:** Assisted. Doesn't know Cortex's blind spots yet; reviews every step, including "Context used / excluded".
+- **Eng lead receiving the stories (Ed, Trevor):** Assisted. Stories land as proposals the team sizes, splits, and adds dependencies to.
+- **Stakeholder / SME:** Assisted. Confirms scope and that stories match their requirements before a sprint.
+- **For everyone:** posting company-wide updates and committing dates stay human-only.
 
-## Repo structure
+### Trust Ladder rung + eval gate
+- **Current rung:** Assisted (on request, human reviews everything, fixtures only, crons not wired).
+- **Next rung:** Supervised.
+- **Gate:** replay set R1–R6 at 100% and EV-7 fixed (date requests escalate) on every change; then 4 consecutive weeks of shadow runs on real data: 4/4 status runs and 2/2 stories runs pass EV-1 + EV-4, ≤ 1 fact correction per run, stories slip (EV-2) in ≤ 1 of 4 runs, and 0 trust incidents (confidential leak, stated date/commitment, hollow DONE, write/post outside approval).
 
-```
-pm-os-agent/
-├── README.md                          ← this dashboard
-├── 00-build/                          ← runnable starter: the transparent Cortex agent,
-│   │                                    fixtures, RUNBOOK, PROMPTS, CORTEX-ANATOMY
-│   ├── RUNBOOK.md                     ← open in your coding agent, add a key, run a fixture, screenshot
-│   ├── PROMPTS.md                     ← the prompt pack: what to say to your coding agent
-│   ├── CORTEX-ANATOMY.md              ← the 7 things every submission must show
-│   ├── agent.py · critic.py · tools.py · prompts.py
-│   └── fixtures/                      ← mock PM tasks + project/roadmap/updates/norms data
-├── 01-agent-line/
-│   └── agent-line-map.md              ← M1: what to hand to the agent (above vs below the line)
-├── 02-loop-design/
-│   └── loop-spec.md                   ← M2: the Loop Spec                 ★ Deliverable 2
-├── 03-orchestration/
-│   └── orchestration-map.md           ← M3: your fleet + the validator     ★ Deliverable 3
-├── 04-memory-context/
-│   └── memory-and-context.md          ← M4: retrieve-vs-long-context + your PM brain
-├── 05-bounds-evals/
-│   └── bounds-and-evals.md            ← M5: hard bounds + trajectory evals
-└── 06-autonomy/
-    ├── prototype.md                   ← demo + screenshots                ★ Deliverable 1
-    ├── build-insights.md              ← friction · learning · aha         ★ Deliverable 4
-    └── production-and-autonomy.md     ← dial · Trust Ladder · governance  ★ Deliverable 5
-```
+### Deployment plan
+- **Runtime:** serverless scheduled functions: two timer triggers (weekly status, biweekly stories) + an HTTP trigger for manual runs. Short, bounded jobs a few times a month.
+- **Owner / on-call:** me (PM). Escalation: Ed and Trevor, eng partners for my two teams, for build/tool failures and the hard kill switch.
+- **Rollback (smallest first):** drop the dial a rung → halt flag → revert prompt/version (model pinned) → disable a tool → revoke keys/tokens + disable the schedule.
+- **Monitoring (weekly run-log review):** replay/eval pass rate in CI, escalate/stuck rate + repeating rejection codes, cost per run / daily / churn alerts, trust-incident count, stories-slip rate.
+
+### ROI metrics + widen-autonomy rule
+**ROI:**
+
+- **Outcome:** PM time per update cycle: 3–4 hours of review, down from 2–3 days manual (~80–90% less). Captured by logging review time in the shadow weeks.
+- **Cost-to-serve:** ≤ $0.10 per approved update (today ~$0.02–0.06 per run). Run-log cost ÷ approved drafts.
+- **Trust incidents:** 0 per month. Incident log reviewed weekly.
+- **Story acceptance:** ≥ 70% of proposed stories kept by Ed's and Trevor's teams (split / dependencies added still counts). Tracked at sprint planning.
+
+**Widen-autonomy rule:**
+
+- **Per segment, one rung at a time:** gate still green (R1–R6 100%, EV-1..EV-8 passing on the current version) + 4 consecutive clean weeks at the current rung with ROI on target + segment evidence (covering PM: shadowed 4 of my runs with ≤ 1 correction; eng teams: story acceptance ≥ 70% for 2 sprints). Any single trust incident drops that segment back a rung immediately and restarts its count.
+
+### Governance & strategy
+- **Compliance:** no emails or Teams chats in prompts; no cross-project data (per-project read tokens); confidential projects counted, never named; memory stores references, not raw transcripts; real data never in git.
+- **Safety:** posting, committing dates, and final prioritization stay human-only; no post/merge/edit tool; backlog writes only via a single-use token after approval; kill switch soft (halt flag) and hard (revoke keys + disable schedule).
+- **Reliability:** 8 iterations · 2 revisions · 90 s/run · $0.50/run · $1/day · churn alert at 3× median; budget caps ESCALATE, infra failures STUCK. Model down: retry hourly until the deadline, then STUCK + notify and I write it manually.
+- **Strategy:** real connectors next, Azure DevOps first, gated by EV-8 + scoped tokens + the 4-week shadow.
+
+---
+
+## Build insights
+
+- **Friction point.** The critic was harder to tune than the agent (over-flagging, fixed with a precision rule); Cortex was most confident when it knew the least (hollow draft from stale data, stopped only by a code check); stories "listed" but not queued in almost every run.
+- **Key learning.** Enforce bounds outside the model; stop conditions are product decisions; evals are the spec.
+- **Aha moment.** Design for simplicity first and widen scope later, instead of starting with a large orchestration. One agent + one critic, Assisted on one project, and let evidence pull in each new piece.
+
+---
+
+_Certification submission, Agentic Loops for PMs Certification._
